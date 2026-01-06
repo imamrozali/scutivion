@@ -1,0 +1,42 @@
+{
+  "name": "scutivion",
+  "scripts": {
+    "test": "mocha test/**/*.test.js",
+    "build": "rm -rf dist packages && mkdir -p dist/Core dist/Router dist/Protocols dist/Plugins packages && npx terser Core/ContextPool.js -o dist/Core/ContextPool.js && npx terser Core/HookSystem.js -o dist/Core/HookSystem.js && npx terser Core/CoreEngine.js -o dist/Core/CoreEngine.js && npx terser Router/TrieRouter.js -o dist/Router/TrieRouter.js && npx terser Protocols/HTTPProtocolAdapter.js -o dist/Protocols/HTTPProtocolAdapter.js && npx terser Protocols/TCPProtocolAdapter.js -o dist/Protocols/TCPProtocolAdapter.js && npx terser Protocols/WebSocketProtocolAdapter.js -o dist/Protocols/WebSocketProtocolAdapter.js && npx terser Protocols/HTTP2ProtocolAdapter.js -o dist/Protocols/HTTP2ProtocolAdapter.js && npx terser Protocols/UDPProtocolAdapter.js -o dist/Protocols/UDPProtocolAdapter.js && npx terser Plugins/FrameworkPlugin.js -o dist/Plugins/FrameworkPlugin.js && npx terser Plugins/StructuredLoggingPlugin.js -o dist/Plugins/StructuredLoggingPlugin.js && npx terser Plugins/SecurityPlugin.js -o dist/Plugins/SecurityPlugin.js && npx terser Plugins/ResponseCompressionPlugin.js -o dist/Plugins/ResponseCompressionPlugin.js && npx terser Plugins/FileStreamingPlugin.js -o dist/Plugins/FileStreamingPlugin.js && npx terser Plugins/ObservabilityPlugin.js -o dist/Plugins/ObservabilityPlugin.js && npx terser index.js -o dist/index.js && cp index.d.ts dist/ && cp -r dist/* packages/ && node -e \"const pkg = require('./package.json'); delete pkg.scripts; delete pkg.devDependencies; require('fs').writeFileSync('packages/package.json', JSON.stringify(pkg, null, 2));\" && cp README.md packages/ && echo 'Build completed'",
+    "docs": "jsdoc -d docs index.js Core/*.js Router/*.js Protocols/*.js Plugins/*.js",
+    "start": "node index.js"
+  },
+  "version": "1.0.0",
+  "description": "Scutivion: Futuristic high-performance Node.js framework inspired by UY Scuti, the largest supergiant star. Shield-like protection for hyperscale applications.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "author": "Muhammad Imam Rozali <muh.imamrozali@gmail.com>",
+  "contributors": [],
+  "license": "MIT",
+  "keywords": [
+    "nodejs",
+    "framework",
+    "high-performance",
+    "native"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/imamrozali/scutivion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/imamrozali/scutivion/issues"
+  },
+  "homepage": "https://github.com/imamrozali/scutivion#readme",
+  "devDependencies": {
+    "autocannon": "^8.0.0",
+    "chai": "^6.2.2",
+    "express": "^5.2.1",
+    "fastify": "^5.6.2",
+    "jsdoc": "^4.0.2",
+    "mocha": "^11.7.5",
+    "terser": "^5.44.1"
+  }
+}

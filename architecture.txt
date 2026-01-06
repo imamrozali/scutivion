@@ -1,0 +1,35 @@
+High-Level Architecture Diagram (Scutivion)
+
++-------------------+     +-------------------+     +-------------------+
+| Protocol Adapters |     |   Core Engine     |     |     Router        |
+|                   |     |                   |     |                   |
+| - HTTP/2 Advanced |---->| - Unified Handler |---->| - Precompiled     |
+|   (Push, HPACK)   |     | - Context Pool    |     |   Static Routes   |
+| - WS Binary/Frag  |     | - Hook Execution |     | - Radix Tree      |
+| - TCP Framing     |     | - Service DI      |     |   Dynamic Routes  |
+| - UDP Low-Latency |     | - Cluster Mode    |     +-------------------+
++-------------------+     | - Graceful Shutdown|     +-------------------+
+                        +-------------------+     |   Buffer Pool     |
+                        |   Hook System     |     |                   |
+                        |                   |     | - Zero-Copy Reuse |
+                        | - onRequest       |     | - TCP/WS Buffers  |
+                        | - onResponse      |     +-------------------+
+                        | - onError         |
+                        +-------------------+
+
++-------------------+     +-------------------+     +-------------------+
+|  Plugin System    |     |   Advanced Features|     | Observability    |
+|                   |     |                   |     |                   |
+| - Security        |     | - Compression      |     | - Health Checks  |
+|   (Rate/CORS/CSRF)|     | - Streaming        |     | - Metrics        |
+| - Logging         |     | - UDP Support      |     | - Circuit Breaker|
+| - Custom Plugins  |     +-------------------+     +-------------------+
++-------------------+     +-------------------+
+
++-------------------+     +-------------------+
+|  Context Pool     |     |   CI/CD & Deploy  |
+|                   |     |                   |
+| - Plain Objects   |     | - GitHub Actions  |
+| - Reuse/Reset     |     | - Dockerfile      |
+| - Cluster-Shared  |     | - K8s Manifests   |
++-------------------+     +-------------------+

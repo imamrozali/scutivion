@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: Core/index.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: Core/index.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const { EventEmitter } = require('events');
+const Router = require('../Router');
+
+/** @typedef {Object} Context
+ * @property {import('http').IncomingMessage|import('http2').Http2ServerRequest} [req]
+ * @property {import('http').ServerResponse|import('http2').Http2ServerResponse} [res]
+ * @property {string[]} params
+ * @property {Object.&lt;string, string>} query
+ * @property {*} [body]
+ * @property {import('net').Socket} [socket]
+ * @property {string} [protocol]
+ * @property {string} [method]
+ * @property {string} [url]
+ * @property {Object.&lt;string, string>} headers
+ * @property {number} statusCode
+ * @property {Object.&lt;string, string>} responseHeaders
+ * @property {string|Buffer} [responseBody]
+ * @property {Error} [error]
+ * @property {Object.&lt;string, *>} custom
+ */
+
+class ContextPool {
+  /** @param {number} [size=1000] */
+  constructor(size = 1000) {
+    this.pool = [];
+    this.size = size;
+    for (let i = 0; i &lt; size; i++) {
+      this.pool.push(this.createContext());
+    }
+  }
+
+  /** @returns {Context} */
+  createContext() {
+    return {
+      req: null,
+      res: null,
+      params: [],
+      query: {},
+      body: null,
+      socket: null,
+      protocol: null,
+      method: null,
+      url: null,
+      headers: {},
+      statusCode: 200,
+      responseHeaders: {},
+      responseBody: null,
+      error: null,
+      custom: {}
+    };
+  }
+
+  /** @returns {Context} */
+  acquire() {
+    return this.pool.pop() || this.createContext();
+  }
+
+  /** @param {Context} ctx */
+  release(ctx) {
+    ctx.req = null;
+    ctx.res = null;
+    ctx.params.length = 0;
+    ctx.query = {};
+    ctx.body = null;
+    ctx.socket = null;
+    ctx.protocol = null;
+    ctx.method = null;
+    ctx.url = null;
+    ctx.headers = {};
+    ctx.statusCode = 200;
+    ctx.responseHeaders = {};
+    ctx.responseBody = null;
+    ctx.error = null;
+    ctx.custom = {};
+    if (this.pool.length &lt; this.size) {
+      this.pool.push(ctx);
+    }
+  }
+}
+
+class HookSystem {
+  constructor() {
+    this.onRequest = [];
+    this.onResponse = [];
+    this.onError = [];
+  }
+
+  /** @param {'onRequest'|'onResponse'|'onError'} hookName @param {Function} fn */
+  register(hookName, fn) {
+    if (this[hookName]) {
+      this[hookName].push(fn);
+    }
+  }
+
+  /** @param {'onRequest'|'onResponse'|'onError'} hookName @param {Context} ctx */
+  execute(hookName, ctx) {
+    const hooks = this[hookName];
+    if (!hooks) return;
+    for (const hook of hooks) {
+      try {
+        hook(ctx);
+      } catch (err) {
+        if (hookName !== 'onError') {
+          this.execute('onError', { ...ctx, error: err });
+        }
+      }
+    }
+  }
+}
+
+class CoreEngine extends EventEmitter {
+  /** @param {Object} [options] @param {number} [options.poolSize=1000] */
+  constructor(options = {}) {
+    super();
+    this.router = new Router();
+    this.hooks = new HookSystem();
+    this.contextPool = new ContextPool(options.poolSize || 1000);
+    this.services = {};
+    this.protocols = {};
+  }
+
+  /** @param {string} name @param {*} service */
+  registerService(name, service) {
+    this.services[name] = service;
+  }
+
+  /** @param {string} method @param {string} path @param {Function} handler */
+  route(method, path, handler) {
+    this.router.insert(method, path, handler);
+  }
+
+  /** @param {'onRequest'|'onResponse'|'onError'} hookName @param {Function} fn */
+  hook(hookName, fn) {
+    this.hooks.register(hookName, fn);
+  }
+
+  /** @param {string} protocol @param {*} rawReq @param {*} rawRes @param {import('net').Socket} [socket] */
+  handleRequest(protocol, rawReq, rawRes, socket = null) {
+    const ctx = this.contextPool.acquire();
+    ctx.protocol = protocol;
+    ctx.req = rawReq;
+    ctx.res = rawRes;
+    ctx.socket = socket;
+
+    if (protocol === 'http' || protocol === 'http2') {
+      ctx.method = rawReq.method;
+      ctx.url = rawReq.url;
+      ctx.headers = rawReq.headers;
+    }
+
+    this.hooks.execute('onRequest', ctx);
+
+    if (ctx.method &amp;&amp; ctx.url) {
+      const path = ctx.url.split('?')[0];
+      const handler = this.router.lookup(ctx.method, path, ctx.params);
+      if (handler) {
+        try {
+          handler(ctx);
+        } catch (err) {
+          ctx.error = err;
+          this.hooks.execute('onError', ctx);
+        }
+      } else {
+        ctx.statusCode = 404;
+      }
+    }
+
+    this.hooks.execute('onResponse', ctx);
+
+    this.emit('response', ctx);
+
+    this.contextPool.release(ctx);
+  }
+
+  /** @param {string} protocol @param {number} port @param {Object} [options] */
+  listen(protocol, port, options = {}) {
+    const adapter = this.protocols[protocol];
+    if (!adapter) throw new Error(`Protocol ${protocol} not registered`);
+    adapter.listen(this, port, options);
+  }
+
+  /** @param {string} name @param {*} adapter */
+  registerProtocol(name, adapter) {
+    this.protocols[name] = adapter;
+  }
+}
+
+module.exports = CoreEngine;</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="ContextObjectPool.html">ContextObjectPool</a></li><li><a href="ContextPool.html">ContextPool</a></li><li><a href="CoreEngine.html">CoreEngine</a></li><li><a href="FrameworkPlugin.html">FrameworkPlugin</a></li><li><a href="HTTPAdapter.html">HTTPAdapter</a></li><li><a href="HTTPProtocolAdapter.html">HTTPProtocolAdapter</a></li><li><a href="Plugin.html">Plugin</a></li><li><a href="TCPAdapter.html">TCPAdapter</a></li><li><a href="TCPProtocolAdapter.html">TCPProtocolAdapter</a></li><li><a href="UnifiedEngineCore.html">UnifiedEngineCore</a></li><li><a href="WSAdapter.html">WSAdapter</a></li><li><a href="WebSocketProtocolAdapter.html">WebSocketProtocolAdapter</a></li></ul><h3><a href="global.html">Global</a></h3>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue Jan 06 2026 22:29:09 GMT+0700 (Western Indonesia Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

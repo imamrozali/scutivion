@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scutivion API Documentation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .class { margin: 20px 0; border: 1px solid #ddd; padding: 10px; }
+        .method { margin-left: 20px; background: #f9f9f9; padding: 5px; }
+        .param { font-style: italic; color: #666; }
+        .example { background: #eee; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Scutivion API Documentation</h1>
+    <p>Comprehensive API documentation for the Scutivion high-performance Node.js framework. This framework provides unified core for HTTP, TCP, WebSocket, and UDP protocols with native performance.</p>
+
+    <div class="class">
+        <h2>CoreEngine</h2>
+        <p>The main engine class that manages routing, hooks, services, and protocol adapters. It provides a unified interface for handling requests across different protocols.</p>
+        <div class="method">
+            <h3>constructor(options?: {cluster?: boolean, poolSize?: number})</h3>
+            <p>Creates a new CoreEngine instance with optional clustering and context pool sizing.</p>
+            <div class="param">options.cluster: Enable cluster mode for multi-core support (default: false)</div>
+            <div class="param">options.poolSize: Size of the context pool for memory management (default: 1000)</div>
+            <div class="example">
+                const app = new CoreEngine({ cluster: true, poolSize: 2000 });
+            </div>
+        </div>
+        <div class="method">
+            <h3>registerService(name: string, service: any)</h3>
+            <p>Registers a service for dependency injection.</p>
+            <div class="param">name: Unique name for the service</div>
+            <div class="param">service: The service instance or object</div>
+            <div class="example">
+                app.registerService('db', { query: () => 'data' });
+            </div>
+        </div>
+        <div class="method">
+            <h3>route(method: string, path: string, handler: Function)</h3>
+            <p>Registers a route with precompiled static or radix tree dynamic routing.</p>
+            <div class="param">method: HTTP method (GET, POST, etc.)</div>
+            <div class="param">path: Route path, supports static (/users) and dynamic (/:id) routes</div>
+            <div class="param">handler: Function that receives context object</div>
+            <div class="example">
+                app.route('GET', '/users/:id', (ctx) => {
+                  ctx.responseBody = JSON.stringify({ id: ctx.params[0] });
+                });
+            </div>
+        </div>
+        <div class="method">
+            <h3>hook(name: 'onRequest'|'onResponse'|'onError', fn: Function)</h3>
+            <p>Registers a hook for request lifecycle events. Hooks execute inline without next().</p>
+            <div class="param">name: Hook name (onRequest, onResponse, onError)</div>
+            <div class="param">fn: Hook function receiving context</div>
+            <div class="example">
+                app.hook('onRequest', (ctx) => console.log(`${ctx.method} ${ctx.url}`));
+            </div>
+        </div>
+        <div class="method">
+            <h3>registerProtocol(name: string, adapter: ProtocolAdapter)</h3>
+            <p>Registers a protocol adapter (HTTP, TCP, WebSocket, UDP).</p>
+            <div class="param">name: Protocol name</div>
+            <div class="param">adapter: Adapter instance</div>
+            <div class="example">
+                app.registerProtocol('http', new HTTPAdapter());
+            </div>
+        </div>
+        <div class="method">
+            <h3>listen(protocol: string, port: number, options?: Object)</h3>
+            <p>Starts the server for the specified protocol on given port.</p>
+            <div class="param">protocol: Protocol name</div>
+            <div class="param">port: Port number</div>
+            <div class="param">options: Optional protocol-specific options</div>
+            <div class="example">
+                app.listen('http', 3000);
+            </div>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>ContextPool</h2>
+        <p>Manages object pooling for request contexts to minimize garbage collection and improve performance. Contexts are plain objects reused across requests.</p>
+        <div class="method">
+            <h3>acquire(): Context</h3>
+            <p>Acquires a clean context object from the pool.</p>
+            <div class="example">
+                const ctx = contextPool.acquire();
+            </div>
+        </div>
+        <div class="method">
+            <h3>release(ctx: Context)</h3>
+            <p>Releases and resets a context object back to the pool.</p>
+            <div class="param">ctx: The context object to release</div>
+            <div class="example">
+                contextPool.release(ctx);
+            </div>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>FrameworkPlugin</h2>
+        <p>Base class for creating plugins that extend the framework with additional features like security, logging, compression, etc.</p>
+        <div class="method">
+            <h3>constructor(name: string)</h3>
+            <p>Creates a new plugin instance.</p>
+            <div class="param">name: Plugin name</div>
+        </div>
+        <div class="method">
+            <h3>registerService(name: string, service: any)</h3>
+            <p>Registers a service within the plugin.</p>
+        </div>
+        <div class="method">
+            <h3>registerHook(name: string, fn: Function)</h3>
+            <p>Registers a hook within the plugin.</p>
+        </div>
+        <div class="method">
+            <h3>apply(core: CoreEngine)</h3>
+            <p>Applies the plugin to the core engine, injecting services and hooks.</p>
+            <div class="param">core: The CoreEngine instance</div>
+            <div class="example">
+                class MyPlugin extends FrameworkPlugin {
+                  constructor() {
+                    super('myplugin');
+                    this.registerHook('onRequest', (ctx) => console.log('Request'));
+                  }
+                }
+                const plugin = new MyPlugin();
+                plugin.apply(app);
+            </div>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>TrieRouter</h2>
+        <p>High-performance router using precompiled static routes and radix tree for dynamic routes with parameter extraction.</p>
+        <div class="method">
+            <h3>insert(method: string, path: string, handler: Function)</h3>
+            <p>Inserts a route into the router.</p>
+        </div>
+        <div class="method">
+            <h3>lookup(method: string, path: string): {handler: Function, params: Array}</h3>
+            <p>Looks up a route and extracts parameters.</p>
+            <div class="param">method: HTTP method</div>
+            <div class="param">path: Request path</div>
+            <div class="example">
+                const result = router.lookup('GET', '/users/123');
+                // result.params = ['123']
+            </div>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>HookSystem</h2>
+        <p>Manages lifecycle hooks that execute inline without middleware chaining.</p>
+        <div class="method">
+            <h3>register(name: string, fn: Function)</h3>
+            <p>Registers a hook function.</p>
+        </div>
+        <div class="method">
+            <h3>execute(name: string, ctx: Context)</h3>
+            <p>Executes all hooks for the given name.</p>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>HTTPProtocolAdapter</h2>
+        <p>Adapter for HTTP/1.1 protocol handling.</p>
+        <div class="method">
+            <h3>listen(core: CoreEngine, port: number, options?: Object)</h3>
+            <p>Starts HTTP server.</p>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>TCPProtocolAdapter</h2>
+        <p>Adapter for raw TCP with 4-byte length-prefixed framing and zero-copy buffers.</p>
+        <div class="method">
+            <h3>listen(core: CoreEngine, port: number)</h3>
+            <p>Starts TCP server.</p>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>WebSocketProtocolAdapter</h2>
+        <p>Adapter for WebSocket protocol with frame parsing and binary support.</p>
+        <div class="method">
+            <h3>listen(core: CoreEngine, port: number)</h3>
+            <p>Starts WebSocket server.</p>
+        </div>
+    </div>
+
+    <div class="class">
+        <h2>Plugins</h2>
+        <p>Various plugins for extending functionality:</p>
+        <ul>
+            <li><strong>SecurityPlugin</strong>: Rate limiting, CORS, CSRF protection</li>
+            <li><strong>CompressionPlugin</strong>: Gzip/deflate compression</li>
+            <li><strong>LoggingPlugin</strong>: Structured JSON logging</li>
+            <li><strong>StreamingPlugin</strong>: File uploads/downloads</li>
+            <li><strong>ObservabilityPlugin</strong>: Health checks, metrics</li>
+        </ul>
+        <div class="example">
+            const { SecurityPlugin } = require('scutivion');
+            app.registerPlugin(new SecurityPlugin({ rateLimit: 1000 }));
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+Core/
+Router/
+Protocols/
+Plugins/
+examples/
+architecture.txt
+README.md
+package-lock.json
+node_modules/
+*.js
+!dist/
+!package.json
+!LICENSE
